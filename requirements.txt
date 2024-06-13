@@ -1,0 +1,7 @@
+black
+coverage
+mypy
+pytest
+requests-mock >=1, <2
+ruff
+types-requests
