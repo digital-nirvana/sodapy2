@@ -63,7 +63,10 @@ class Socrata:
         # set up the session with proper authentication crendentials
         self.session = requests.Session()
         if not app_token:
-            logging.warning("Requests made without an app_token will be" " subject to strict throttling limits.")
+            logging.warning(
+                "Requests made without an app_token will be"
+                " subject to strict throttling limits."
+            )
         else:
             self.session.headers.update({"X-App-token": app_token})
 
@@ -76,7 +79,9 @@ class Socrata:
             self.session.headers.update({"Authorization": f"OAuth {access_token}"})
 
         if session_adapter:
-            self.session.mount(prefix=f"{self.PROTO}://", adapter=session_adapter["adapter"])
+            self.session.mount(
+                prefix=f"{self.PROTO}://", adapter=session_adapter["adapter"]
+            )
 
         if not isinstance(timeout, (int, float)):
             raise TypeError("Timeout must be numeric.")
@@ -202,10 +207,16 @@ class Socrata:
         if order:
             params.append(("order", order))
 
-        results = self._perform_request("get", DATASETS_PATH, params=params + [("offset", offset)])
+        results = self._perform_request(
+            "get", DATASETS_PATH, params=params + [("offset", offset)]
+        )
         num_results = results["resultSetSize"]
         # no more results to fetch, or limit reached
-        if limit >= num_results or limit == len(results["results"]) or num_results == len(results["results"]):
+        if (
+            limit >= num_results
+            or limit == len(results["results"])
+            or num_results == len(results["results"])
+        ):
             return results["results"]
 
         if limit != 0:
@@ -217,7 +228,9 @@ class Socrata:
         all_results = results["results"]
         while len(all_results) != num_results:
             offset += len(results["results"])
-            results = self._perform_request("get", DATASETS_PATH, params=params + [("offset", offset)])
+            results = self._perform_request(
+                "get", DATASETS_PATH, params=params + [("offset", offset)]
+            )
             all_results.extend(results["results"])
 
         return all_results
@@ -268,7 +281,9 @@ class Socrata:
         logging.info("The following files were downloaded:\n\t%s", "\n\t".join(files))
         return files
 
-    def get(self, dataset_id: str, content_type: str = "json", **kwargs) -> Union[list[list[str]], str]:
+    def get(
+        self, dataset_id: str, content_type: str = "json", **kwargs
+    ) -> Union[list[list[str]], str]:
         """
         Read data from the requested resource.
 
@@ -295,7 +310,9 @@ class Socrata:
         More information about system fields can be found here:
             http://dev.socrata.com/docs/system-fields.html
         """
-        resource = utils.format_new_api_request(dataset_id=dataset_id, content_type=content_type)
+        resource = utils.format_new_api_request(
+            dataset_id=dataset_id, content_type=content_type
+        )
         headers = utils.clear_empty_values({"Accept": kwargs.pop("format", None)})
 
         # SoQL parameters
@@ -315,7 +332,9 @@ class Socrata:
         params.update(kwargs)
         params = utils.clear_empty_values(params)
 
-        response = self._perform_request("get", resource, headers=headers, params=params)
+        response = self._perform_request(
+            "get", resource, headers=headers, params=params
+        )
         return response
 
     def get_all(self, *args, **kwargs) -> Generator[Any, Any, Any]:
@@ -347,7 +366,9 @@ class Socrata:
         """
         Retrieve the metadata for a particular dataset.
         """
-        resource = utils.format_old_api_request(dataset_id=dataset_id, content_type=content_type)
+        resource = utils.format_old_api_request(
+            dataset_id=dataset_id, content_type=content_type
+        )
         return self._perform_request("get", resource)
 
     def _perform_request(self, request_type, resource, **kwargs):
@@ -356,7 +377,9 @@ class Socrata:
         """
         supported_http_methods = frozenset(["get"])
         if request_type not in supported_http_methods:
-            raise Exception(f"Unknown HTTP request method. Supported methods are {supported_http_methods}")
+            raise Exception(
+                f"Unknown HTTP request method. Supported methods are {supported_http_methods}"
+            )
 
         uri = urlunsplit((self.PROTO, self.domain, resource, None, None))
         kwargs["timeout"] = self.timeout
