@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sodapy2"
+description = "Python library for the Socrata Open Data API"
+version = "1.0.0"
+urls = { source = "https://github.com/digital-nirvana/sodapy2" }
+authors = [{ name = "Jeff Kois", email = "jk@digitalnirvana.cc" }]
+maintainers = [{ name = "Jeff Kois", email = "jk@digitalnirvana.cc" }]
+requires-python = ">=3.6"
+dependencies = ["requests>=2.28.1"]
+license = { file = "LICENSE" }
+readme = "README.md"
+keywords = ["soda", "socrata", "opendata", "api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+[tool.ruff]
+line-length = 120
