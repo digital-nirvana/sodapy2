@@ -1,0 +1,54 @@
+{
+    "id": "sodapy2-pytest",
+    "name": "\"The Counted\" Database 2015-2016",
+    "attribution": "The Guardian",
+    "attributionLink": "http://www.theguardian.com/us-news/ng-interactive/2015/jun/01/about-the-counted",
+    "category": "Public Safety",
+    "createdAt": "2016-02-29T23:15:39+0000",
+    "dataUpdatedAt": "2018-03-14T17:11:48+0000",
+    "dataUri": "https://evergreen.data.socrata.com/resource/6udu-fhnu",
+    "description": "The Counted is a project by the Guardian – and you – working to count the number of people killed by police and other law enforcement agencies in the United States throughout 2015 and 2016, to monitor their demographics and to tell the stories of how they died.\r\n\r\nThe database will combine Guardian reporting with verified crowdsourced information to build a more comprehensive record of such fatalities. The Counted is the most thorough public accounting for deadly use of force in the US, but it will operate as an imperfect work in progress – and will be updated by Guardian reporters and interactive journalists as frequently and as promptly as possible.",
+    "domain": "evergreen.data.socrata.com",
+    "externalId": null,
+    "hideFromCatalog": false,
+    "hideFromDataJson": false,
+    "license": "Public Domain",
+    "metadataUpdatedAt": "2019-01-22T18:38:46+0000",
+    "provenance": "OFFICIAL",
+    "updatedAt": "2018-11-14T01:18:38+0000",
+    "webUri": "https://evergreen.data.socrata.com/d/6udu-fhnu",
+    "approvals": [
+        {
+            "reviewedAt": 1542158274,
+            "reviewedAutomatically": true,
+            "state": "approved",
+            "submissionId": 461930,
+            "submissionObject": "public_audience_request",
+            "submissionOutcome": "change_audience",
+            "submittedAt": 1542158274,
+            "targetAudience": "public",
+            "workflowId": 1127,
+            "submissionDetails": {
+                "permissionType": "READ"
+            },
+            "submissionOutcomeApplication": {
+                "failureCount": 0,
+                "status": "success"
+            },
+            "submitter": {
+                "id": "eudm-snef",
+                "displayName": "Saf Rabah"
+            }
+        }
+    ],
+    "customFields": {
+        "Publisher": {
+            "Agency Name": "Police Department"
+        }
+    },
+    "tags": [
+        "the-counted",
+        "guardian",
+        "police"
+    ]
+}

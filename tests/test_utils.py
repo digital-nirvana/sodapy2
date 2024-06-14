@@ -38,66 +38,8 @@ def test_raise_for_status(status_code, status_type, reason, raises_exception):
         ({"s": "", "c": 0}, {"s": "", "c": 0}),
     ],
 )
-def test_clear_empty_values(elems, result):
-    assert utils.clear_empty_values(elems) == result
-
-
-def test_format_old_api_request_exception():
-    with pytest.raises(Exception):
-        utils.format_old_api_request()
-
-
-@pytest.mark.parametrize(
-    ("dataset_id", "content_type", "path"),
-    [
-        ("abcd", None, "/api/views/abcd"),
-        ("abcd", "json", "/api/views/abcd.json"),
-        (None, "json", "/api/views.json"),
-    ],
-)
-def test_format_old_api_request(dataset_id, content_type, path):
-    assert (
-        utils.format_old_api_request(dataset_id=dataset_id, content_type=content_type)
-        == path
-    )
-
-
-@pytest.mark.parametrize(
-    ("dataset_id", "row_id", "content_type", "path"),
-    [
-        ("abcd", None, "json", "/resource/abcd.json"),
-        ("abcd", 123, "json", "/resource/abcd/123.json"),
-    ],
-)
-def test_format_new_api_request(dataset_id, row_id, content_type, path):
-    assert (
-        utils.format_new_api_request(
-            dataset_id=dataset_id, row_id=row_id, content_type=content_type
-        )
-        == path
-    )
-
-
-def test_format_new_api_request_exception():
-    with pytest.raises(Exception):
-        utils.format_new_api_request()
-
-
-@pytest.mark.parametrize(
-    ("username", "password", "token"),
-    [("me", None, "123456"), (None, "pass", "123456"), ("me", "pass", "123456")],
-)
-def test_authentication_validation_exceptions(username, password, token):
-    with pytest.raises(Exception):
-        utils.authentication_validation(username, password, token)
-
-
-@pytest.mark.parametrize(
-    ("username", "password", "token"),
-    [("me", "pass", None), (None, None, "93738")],
-)
-def test_authentication_validation(username, password, token):
-    utils.authentication_validation(username, password, token)
+def test_prune_empty_values(elems, result):
+    assert utils.prune_empty_values(elems) == result
 
 
 def test_download_file(tmp_path):
