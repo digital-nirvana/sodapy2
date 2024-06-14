@@ -8,102 +8,65 @@ from typing import Any, Generator, Union
 from urllib.parse import urlunsplit
 
 import requests
+import requests.adapters
 
 import sodapy2.utils as utils
-from sodapy2.constants import DATASETS_PATH
+from sodapy2.constants import Formats, SodaApiEndpoints
 
 
 class Socrata:
     """
     The main class that interacts with the SODA API. Sample usage:
         from sodapy2 import Socrata
-        client = Socrata("opendata.socrata.com", None)
+        client = Socrata("opendata.socrata.com")
     """
-
-    DEFAULT_LIMIT = 1000  # See https://dev.socrata.com/docs/paging.html#2.1
-    PROTO = "https"
 
     def __init__(
         self,
-        domain,
-        app_token,
-        username=None,
-        password=None,
-        access_token=None,
-        session_adapter=None,
-        timeout=10,
+        domain: str,
+        app_token: str = "",
+        session_adapter: Union[requests.adapters.BaseAdapter, None] = None,
+        timeout: Union[int, float] = 10,
     ):
         """
-        The required arguments are:
+        Initialize an instance of Socrata.
+
+        Simple requests are possible without an app token but such requests will be rate-limited.
+        See https://dev.socrata.com/docs/app-tokens for information about application tokens.
+
+        Args:
             domain: the domain you wish you to access
-            app_token: your Socrata application token
-        Simple requests are possible without an app_token, though these
-        requests will be rate-limited.
-
-        For write/update/delete operations or private datasets, the Socrata API
-        currently supports basic HTTP authentication, which requires these
-        additional parameters.
-            username: your Socrata username
-            password: your Socrata password
-
-        The basic HTTP authentication comes with a deprecation warning, and the
-        current recommended authentication method is OAuth 2.0. To make
-        requests on behalf of the user using OAuth 2.0 authentication, follow
-        the recommended procedure and provide the final access_token to the
-        client.
-
-        More information about authentication can be found in the official
-        docs:
-            http://dev.socrata.com/docs/authentication.html
+            app_token: your Socrata application token (optional)
         """
         if not domain:
-            raise Exception("A domain is required.")
+            raise ValueError("Arg `domain` must not be null.")
         self.domain = domain
 
-        # set up the session with proper authentication crendentials
+        if not isinstance(timeout, (int, float)):
+            raise TypeError("Arg `timeout` must be numeric.")
+        self.timeout = timeout
+
+        self.proto = "http+mock" if os.environ.get("PYTEST_CURRENT_TEST") else "https"
+
         self.session = requests.Session()
         if not app_token:
-            logging.warning(
-                "Requests made without an app_token will be"
-                " subject to strict throttling limits."
-            )
+            logging.warning("Requests made without an app_token will be" " subject to strict throttling limits.")
         else:
             self.session.headers.update({"X-App-token": app_token})
 
-        utils.authentication_validation(username, password, access_token)
-
-        # use either basic HTTP auth or OAuth2.0
-        if username and password:
-            self.session.auth = (username, password)
-        elif access_token:
-            self.session.headers.update({"Authorization": f"OAuth {access_token}"})
-
         if session_adapter:
-            self.session.mount(
-                prefix=f"{self.PROTO}://", adapter=session_adapter["adapter"]
-            )
-
-        if not isinstance(timeout, (int, float)):
-            raise TypeError("Timeout must be numeric.")
-        self.timeout = timeout
+            self.session.mount(prefix=f"{self.proto}://", adapter=session_adapter)
 
     def __enter__(self):
-        """
-        This runs as the with block is set up.
-        """
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """
-        This runs at the end of a with block. It simply closes the client.
-        """
         self.close()
 
-    def datasets(self, limit: int = 0, offset: int = 0, order: str = "", **kwargs):
+    def get_datasets(self, limit: int = 0, offset: int = 0, order: str = "", **kwargs):
         """
-        Returns the list of datasets associated with a particular domain.
+        Return the list of datasets associated with a particular domain.
         This method performs a GET request on these type of URLs: e.g. https://data.edmonton.ca/api/catalog/v1
-
 
         WARNING: Large limits (>1000) will return many megabytes of data which can be slow
         on low-bandwidth networks, and is also a lot of data to hold in memory.
@@ -194,7 +157,7 @@ class Socrata:
                 raise TypeError("Unexpected keyword argument %s" % key)
         params = [("domains", self.domain)]
         if limit:
-            params.append(("limit", limit))
+            params.append(("limit", str(limit)))
         for key, value in kwargs.items():
             if key in filter_multiple:
                 for item in value:
@@ -207,16 +170,12 @@ class Socrata:
         if order:
             params.append(("order", order))
 
-        results = self._perform_request(
-            "get", DATASETS_PATH, params=params + [("offset", offset)]
+        results, _ = self._perform_request(
+            "get", SodaApiEndpoints.DISCOVERY.endpoint, params=params + [("offset", offset)]
         )
         num_results = results["resultSetSize"]
         # no more results to fetch, or limit reached
-        if (
-            limit >= num_results
-            or limit == len(results["results"])
-            or num_results == len(results["results"])
-        ):
+        if limit >= num_results or limit == len(results["results"]) or num_results == len(results["results"]):
             return results["results"]
 
         if limit != 0:
@@ -228,189 +187,151 @@ class Socrata:
         all_results = results["results"]
         while len(all_results) != num_results:
             offset += len(results["results"])
-            results = self._perform_request(
-                "get", DATASETS_PATH, params=params + [("offset", offset)]
+            results, _ = self._perform_request(
+                "get", SodaApiEndpoints.DISCOVERY.endpoint, params=params + [("offset", offset)]
             )
             all_results.extend(results["results"])
 
         return all_results
 
-    def download_attachments(
-        self,
-        dataset_id: str,
-        content_type: str = "json",
-        download_dir: str = "~/sodapy_downloads",
-    ) -> list:
+    def get(self, dataset_id: str, content_type: str = "json", **params) -> Union[list[list[str]], str]:
         """
-        Download all of the attachments associated with a dataset.
+        Fetch data for a given dataset.
 
         Args:
             dataset_id: The identifier of the desired dataset.
-            content_type: Options are json, csv, and xml.
-            download_dir: A local file path where content will be stored.
+            content_type: The desired results format.
 
-        Returns:
-            The paths of downloaded files.
-        """
-        metadata = self.get_metadata(dataset_id, content_type=content_type)
-        files: list = []
-        attachments = metadata["metadata"].get("attachments")
-        if not attachments:
-            logging.info("No attachments were found or downloaded.")
-            return files
-
-        download_dir = os.path.join(os.path.expanduser(download_dir), dataset_id)
-        os.makedirs(download_dir, exist_ok=True)
-
-        for attachment in attachments:
-            file_path = os.path.join(download_dir, attachment["filename"])
-            has_assetid = attachment.get("assetId", False)
-            if has_assetid:
-                base = utils.format_old_api_request(dataset_id=dataset_id)
-                assetid = attachment["assetId"]
-                resource = f"{base}/files/{assetid}?download=true&filename={attachment["filename"]}"
-            else:
-                base = "/api/assets"
-                assetid = attachment["blobId"]
-                resource = f"{base}/{assetid}?download=true"
-
-            uri = urlunsplit((self.PROTO, self.domain, resource, None, None))
-            utils.download_file(uri, file_path)
-            files.append(file_path)
-
-        logging.info("The following files were downloaded:\n\t%s", "\n\t".join(files))
-        return files
-
-    def get(
-        self, dataset_id: str, content_type: str = "json", **kwargs
-    ) -> Union[list[list[str]], str]:
-        """
-        Read data from the requested resource.
-
-        Args:
-            dataset_id: The identifier of the desired dataset.
-            content_type: Options are json, csv, and xml.
-            Optionally, specify a keyword arg to filter results:
-                select : the set of columns to be returned, defaults to *
-                where : filters the rows to be returned, defaults to limit
-                order : specifies the order of results
-                group : column to group results on
-                limit : max number of results to return, defaults to 1000
-                offset : offset, used for paging. Defaults to 0
-                q : performs a full text search for a value
-                query : full SoQL query string, all as one parameter
+            Optionally, specify a kwarg-style parameters to filter results:
+                select : the set of columns to be returned; Default: *
+                where : filters the rows to be returned.
+                order : specifies the order of results; Default: non-deterministic ordering.
+                group : column to group results on for aggregate queries.
+                limit : max number of results to return; Default: 1000.
+                offset : offset, used for paging; Default: 0.
+                q : performs a full text search for a value.
+                query : full SoQL query string, all as one parameter.
                 exclude_system_fields : defaults to true. If set to false, the
                     response will include system fields (:id, :created_at, and
                     :updated_at)
 
         More information about the SoQL parameters can be found at the official
         docs:
-            http://dev.socrata.com/docs/queries.html
+            https://dev.socrata.com/docs/queries
 
         More information about system fields can be found here:
-            http://dev.socrata.com/docs/system-fields.html
+            https://dev.socrata.com/docs/system-fields
         """
-        resource = utils.format_new_api_request(
-            dataset_id=dataset_id, content_type=content_type
-        )
-        headers = utils.clear_empty_values({"Accept": kwargs.pop("format", None)})
+        if not dataset_id:
+            raise ValueError("dataset_id must not be null")
+        if content_type.upper() not in Formats.__members__:
+            content_types = [type.lower() for type in list(Formats.__members__.keys())]
+            raise ValueError(f"content_type must be one of: {content_types}")
 
-        # SoQL parameters
+        resource = f"{SodaApiEndpoints.DATASET.endpoint}/{dataset_id}"
+        headers = {"Accept": Formats[content_type.upper()].mimetype}
+
+        # SoQL parameters. Initialize all as "None" because null values will be pruned before sending the request.
         params = {
-            "$select": kwargs.pop("select", None),
-            "$where": kwargs.pop("where", None),
-            "$order": kwargs.pop("order", None),
-            "$group": kwargs.pop("group", None),
-            "$limit": kwargs.pop("limit", None),
-            "$offset": kwargs.pop("offset", None),
-            "$q": kwargs.pop("q", None),
-            "$query": kwargs.pop("query", None),
-            "$$exclude_system_fields": kwargs.pop("exclude_system_fields", None),
+            "$select": params.pop("select", None),
+            "$where": params.pop("where", None),
+            "$order": params.pop("order", None),
+            "$group": params.pop("group", None),
+            "$limit": params.pop("limit", None),
+            "$offset": params.pop("offset", None),
+            "$q": params.pop("q", None),
+            "$query": params.pop("query", None),
+            "$$exclude_system_fields": params.pop("exclude_system_fields", None),
         }
+        params = utils.prune_empty_values(params)
 
-        # Additional parameters, such as field names
-        params.update(kwargs)
-        params = utils.clear_empty_values(params)
-
-        response = self._perform_request(
-            "get", resource, headers=headers, params=params
-        )
+        response, _ = self._perform_request("get", resource, headers=headers, params=params)
         return response
 
-    def get_all(self, *args, **kwargs) -> Generator[Any, Any, Any]:
+    def get_all(self, dataset_id: str, content_type: str = "json", **params) -> Generator[Any, Any, Any]:
         """
-        Read data from the requested resource, paginating over all results.
+        Fetch data for a given dataset and paginate over all results.
 
         Args:
-            See optional args in `get()`.
+            dataset_id: The identifier of the desired dataset.
+            content_type: The desired results format.
+
+            See optional params in `get()`.
 
         Returns:
-            Generator.
+            Generator of results.
         """
-        params = {}
-        params.update(kwargs)
-        if "offset" not in params:
-            params["offset"] = 0
-        limit = params.get("limit", self.DEFAULT_LIMIT)
+        # Set these values specifically because they're used to control paging.
+        params["order"] = params.get("order", ":id")
+        params["offset"] = params.get("offset", 0)
+        params["limit"] = params.get("limit", 1000)  # 1000 is the default SODA API limit.
 
-        while True:
-            response = self.get(*args, **params)
+        response = self.get(dataset_id=dataset_id, content_type=content_type, **params)
+        while response:
             for item in response:
                 yield item
-
-            if len(response) < limit:
+            if len(response) < params["limit"]:  # There are no more results.
                 return
-            params["offset"] += limit
+            params["offset"] += params["limit"]
+            response = self.get(dataset_id=dataset_id, content_type=content_type, **params)
 
-    def get_metadata(self, dataset_id: str, content_type: str = "json"):
+    def get_metadata(self, dataset_id: str = "") -> dict:
         """
         Retrieve the metadata for a particular dataset.
-        """
-        resource = utils.format_old_api_request(
-            dataset_id=dataset_id, content_type=content_type
-        )
-        return self._perform_request("get", resource)
 
-    def _perform_request(self, request_type, resource, **kwargs):
+        If no dataset_id is given, all metadata will be returned.
+
+        Args:
+            dataset_id: The identifier of the desired dataset.
+
+        Returns:
+            The dataset's metadata.
+        """
+        resource = (
+            f"{SodaApiEndpoints.METADATA.endpoint}/{dataset_id}" if dataset_id else SodaApiEndpoints.METADATA.endpoint
+        )
+        metadata, _ = self._perform_request(method="get", resource=resource)
+        return metadata
+
+    def _perform_request(self, method: str, resource: str, **kwargs) -> tuple:
         """
         Utility method that performs all requests.
+
+        Args:
+            method: the HTTP method to use, e.g. get, post.
+            resource: the resource to request.
+
+        Returns:
+            The response body and content type.
+
         """
         supported_http_methods = frozenset(["get"])
-        if request_type not in supported_http_methods:
-            raise Exception(
-                f"Unknown HTTP request method. Supported methods are {supported_http_methods}"
-            )
+        if method not in supported_http_methods:
+            raise Exception(f"Unknown HTTP request method. Supported methods are: {supported_http_methods}")
 
-        uri = urlunsplit((self.PROTO, self.domain, resource, None, None))
+        uri = urlunsplit((self.proto, self.domain, resource, None, None))
         kwargs["timeout"] = self.timeout
-        response = getattr(self.session, request_type)(uri, **kwargs)
+        response = getattr(self.session, method)(uri, **kwargs)
 
         if response.status_code not in (200, 202):
             utils.raise_for_status(response)
 
-        # When responses have no content body (ie. delete, set_permission), simply return the whole response.
-        if not response.text:
-            return response
-
-        # for other request types, return most useful data
         content_type = response.headers.get("content-type").strip().lower()
         if re.match(r"application\/(vnd\.geo\+)?json", content_type):
-            return response.json()
-        if re.match(r"text\/csv", content_type):
-            csv_stream = StringIO(response.text)
-            return list(csv.reader(csv_stream))
-        if re.match(r"application\/rdf\+xml", content_type):
-            return response.content
-        if re.match(r"text\/plain", content_type):
+            return_val = (response.json(), content_type)
+        elif content_type == "text/csv":
+            return_val = (list(csv.reader(StringIO(response.text))), content_type)
+        elif content_type == "application/rdf+xml":
+            return_val = (response.content, content_type)
+        elif content_type == "text/plain":
             try:
-                return json.loads(response.text)
+                return_val = (json.loads(response.text), content_type)
             except ValueError:
-                return response.text
-
-        raise Exception(f"Unknown response format: {content_type}")
+                return_val = (response.text, content_type)
+        else:
+            raise Exception(f"Unknown response format: {content_type}")
+        return return_val
 
     def close(self) -> None:
-        """
-        Close the session.
-        """
+        """Close the session."""
         self.session.close()

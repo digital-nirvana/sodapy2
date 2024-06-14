@@ -8,19 +8,13 @@ import pytest
 import requests_mock
 
 from sodapy2 import Socrata
-from sodapy2.constants import DATASETS_PATH, DEFAULT_API_PATH, OLD_API_PATH
+from sodapy2.constants import Formats, SodaApiEndpoints
 
-PROTO = "https"
-DOMAIN = "fakedomain.com"
-DATASET_IDENTIFIER = "songs"
 APPTOKEN = "FakeAppToken"
-USERNAME = "fakeuser"
-PASSWORD = "fakepassword"
-TEST_DATA_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))),
-    "test_data",
-)
+DATASET_ID = "sodapy2-pytest"
+DOMAIN = "fakedomain.com"
 LOGGER = logging.getLogger(__name__)
+PROTO = "http+mock"
 
 
 def test_client():
@@ -29,7 +23,7 @@ def test_client():
     client.close()
 
 
-def test_client_warning(caplog):
+def test_client_throttle_warning(caplog):
     with caplog.at_level(logging.WARNING):
         client = Socrata(DOMAIN, None)
     assert "strict throttling limits" in caplog.text
@@ -53,209 +47,135 @@ def test_context_manager_timeout_exception():
             pass
 
 
-def test_client_oauth():
-    client = Socrata(DOMAIN, APPTOKEN, access_token="AAAAAAAAAAAA")
-    assert client.session.headers.get("Authorization") == "OAuth AAAAAAAAAAAA"
+def test_get_invalid_type():
+    with pytest.raises(ValueError) as exc_info:
+        with Socrata(DOMAIN, APPTOKEN) as client:
+            client.get(dataset_id=DATASET_ID, content_type="error")
+    assert str(exc_info.value) == "content_type must be one of: ['csv', 'json', 'rdfxml', 'xml']"
 
 
-def test_get():
+def test_get_json():
+    response_body = _get_test_response_body(body_file="get_songs.json")
     adapter = requests_mock.Adapter()
-    client = Socrata(DOMAIN, APPTOKEN, session_adapter={"adapter": adapter})
-    setup_mock(
-        adapter=adapter, method="GET", response="get_songs.txt", response_code=200
+    adapter.register_uri(
+        "GET",
+        urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", None, None)),
+        json=response_body,
+        headers={"content-type": Formats.JSON.mimetype},
     )
 
-    response = client.get(DATASET_IDENTIFIER)
+    with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
+        response = client.get(DATASET_ID)
+        assert isinstance(response, list)
+        assert len(response) == 10
 
-    assert isinstance(response, list)
-    assert len(response) == 10
 
-    client.close()
+def test_get_json_with_unicode():
+    response_body = _get_test_response_body(body_file="get_songs_unicode.json")
+    adapter = requests_mock.Adapter()
+    adapter.register_uri(
+        "GET",
+        urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", None, None)),
+        json=response_body,
+        headers={"content-type": Formats.JSON.mimetype},
+    )
+
+    with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
+        response = client.get(DATASET_ID)
+        assert isinstance(response, list)
+        assert len(response) == 10
 
 
 def test_get_all():
     adapter = requests_mock.Adapter()
-    client = Socrata(DOMAIN, APPTOKEN, session_adapter={"adapter": adapter})
 
-    setup_mock(
-        adapter=adapter,
-        method="GET",
-        response="bike_counts_page_1.json",
-        response_code=200,
-        query="$offset=0",
-    )
-    setup_mock(
-        adapter=adapter,
-        method="GET",
-        response="bike_counts_page_2.json",
-        response_code=200,
-        query="$offset=1000",
-    )
-    response = client.get_all(DATASET_IDENTIFIER)
-
-    assert inspect.isgenerator(response)
-    data = list(response)
-    assert len(data) == 1001
-    assert data[0]["date"] == "2016-09-21T15:45:00.000"
-    assert data[-1]["date"] == "2016-10-02T01:45:00.000"
-
-    client.close()
-
-
-def test_get_unicode():
-    adapter = requests_mock.Adapter()
-    client = Socrata(DOMAIN, APPTOKEN, session_adapter={"adapter": adapter})
-
-    setup_mock(
-        adapter=adapter,
-        method="GET",
-        response="get_songs_unicode.txt",
-        response_code=200,
+    response_body = _get_test_response_body(body_file="bike_counts_page_1.json")
+    adapter.register_uri(
+        "GET",
+        urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", "$offset=0", None)),
+        json=response_body,
+        headers={"content-type": Formats.JSON.mimetype},
     )
 
-    response = client.get(DATASET_IDENTIFIER)
+    response_body = _get_test_response_body(body_file="bike_counts_page_2.json")
+    adapter.register_uri(
+        "GET",
+        urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", "$offset=1000", None)),
+        json=response_body,
+        headers={"content-type": Formats.JSON.mimetype},
+    )
 
-    assert isinstance(response, list)
-    assert len(response) == 10
-
-    client.close()
+    with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
+        response = client.get_all(dataset_id=DATASET_ID)
+        assert inspect.isgenerator(response)
+        data = list(response)
+        assert len(data) == 1001
+        assert data[0]["date"] == "2016-09-21T15:45:00.000"
+        assert data[-1]["date"] == "2016-10-02T01:45:00.000"
 
 
 def test_get_datasets():
+    response_body = _get_test_response_body(body_file="get_datasets.json")
     adapter = requests_mock.Adapter()
-    client = Socrata(DOMAIN, APPTOKEN, session_adapter={"adapter": adapter})
-
-    setup_datasets_mock(
-        adapter=adapter,
-        response="get_datasets.txt",
-        response_code=200,
-        params={"limit": "7"},
+    adapter.register_uri(
+        "GET",
+        urlunsplit((PROTO, DOMAIN, SodaApiEndpoints.DISCOVERY.endpoint, "limit=7&offset=0", None)),
+        json=response_body,
+        headers={"content-type": Formats.JSON.mimetype},
     )
-    response = client.datasets(limit=7)
+    print(adapter)
 
-    assert isinstance(response, list)
-    assert len(response) == 7
+    with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
+        response = client.get_datasets(limit=7)
+        assert isinstance(response, list)
+        assert len(response) == 7
 
 
-def test_get_metadata_and_attachments():
+# TODO: Implement this.
+# def test_get_all_metadata():
+#     response_body = _get_test_response_body(body_file="get_all_metadata")
+#     adapter = requests_mock.Adapter()
+#     adapter.register_uri(
+#         "GET",
+#         urlunsplit((PROTO, DOMAIN, f"{SODAAPI_METADATA_ENDPT}", None, None)),
+#         json=response_body,
+#         headers={"content-type": Formats.JSON.mimetype},
+#     )
+
+#     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
+#         response = client.get_metadata()
+#         assert isinstance(response, dict)
+#         assert "newBackend" in response
+#         assert "attachments" in response["metadata"]
+
+
+def test_get_dataset_metadata():
+    response_body = _get_test_response_body(body_file="get_dataset_metadata.json")
     adapter = requests_mock.Adapter()
-    client = Socrata(DOMAIN, APPTOKEN, session_adapter={"adapter": adapter})
-
-    setup_old_api_mock(
-        adapter=adapter,
-        method="GET",
-        response="get_song_metadata.txt",
-        response_code=200,
-    )
-    response = client.get_metadata(DATASET_IDENTIFIER)
-
-    assert isinstance(response, dict)
-    assert "newBackend" in response
-    assert "attachments" in response["metadata"]
-
-    response = client.download_attachments(DATASET_IDENTIFIER)
-
-    assert isinstance(response, list)
-    assert len(response) == 0
-
-    client.close()
-
-
-def setup_old_api_mock(
-    adapter,
-    method,
-    response,
-    response_code,
-    reason="OK",
-    dataset_identifier=DATASET_IDENTIFIER,
-    content_type="json",
-):
-    path = os.path.join(TEST_DATA_PATH, response)
-    with open(path, "r") as response_body:
-        try:
-            body = json.load(response_body)
-        except ValueError:
-            body = None
-
-    uri = urlunsplit(
-        (
-            PROTO,
-            DOMAIN,
-            f"{OLD_API_PATH}/{dataset_identifier}.{content_type}",
-            None,
-            None,
-        )
-    )
-
     adapter.register_uri(
-        method,
-        uri,
-        status_code=response_code,
-        json=body,
-        reason=reason,
-        headers={"content-type": "application/json; charset=utf-8"},
+        "GET",
+        urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.METADATA.endpoint}/{DATASET_ID}", None, None)),
+        json=response_body,
+        headers={"content-type": Formats.JSON.mimetype},
     )
 
+    with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
+        response = client.get_metadata(DATASET_ID)
+        assert isinstance(response, dict)
+        assert "id" in response
+        assert response["id"] == DATASET_ID
+        assert "name" in response
 
-def setup_datasets_mock(adapter, response, response_code, reason="OK", params={}):
-    path = os.path.join(TEST_DATA_PATH, response)
-    with open(path, "r") as response_body:
-        body = json.load(response_body)
 
-    uri = urlunsplit((PROTO, DOMAIN, DATASETS_PATH, None, None))
-
-    if "offset" not in params:
-        params["offset"] = 0
-        uri = "{}?{}".format(
-            uri, "&".join(["{}={}".format(k, v) for k, v in params.items()])
-        )
-
-    adapter.register_uri(
-        "get",
-        uri,
-        status_code=response_code,
-        json=body,
-        reason=reason,
-        headers={"content-type": "application/json; charset=utf-8"},
+def _get_test_response_body(body_file: str):
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))),  # type: ignore
+        "test_data",
+        body_file,
     )
-
-
-def setup_mock(
-    adapter,
-    method,
-    response,
-    response_code,
-    reason="OK",
-    dataset_identifier=DATASET_IDENTIFIER,
-    content_type="json",
-    query=None,
-):
-    path = os.path.join(TEST_DATA_PATH, response)
-    with open(path, "r") as response_body:
-        body = json.load(response_body)
-
-    if dataset_identifier is None:  # for create endpoint
-        uri = urlunsplit((PROTO, DOMAIN, f"{OLD_API_PATH}.json", query, None))
-    else:  # most cases
-        uri = urlunsplit(
-            (
-                PROTO,
-                DOMAIN,
-                f"{DEFAULT_API_PATH}{dataset_identifier}.{content_type}",
-                query,
-                None,
-            )
-        )
-
-    # if query:
-    #     uri += "?" + query
-
-    adapter.register_uri(
-        method,
-        uri,
-        status_code=response_code,
-        json=body,
-        reason=reason,
-        headers={"content-type": "application/json; charset=utf-8"},
-        complete_qs=True,
-    )
+    with open(path, "r") as f:
+        if body_file.endswith(".json"):
+            body = json.load(f)
+        else:
+            body = f.read()
+    return body
