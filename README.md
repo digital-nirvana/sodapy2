@@ -6,6 +6,8 @@ TODO: Reinstate all of this
 
 # sodapy2
 
+DISCLAIMER: This project is not ready for production use. I am working to get it into such a state. Updates coming soon!
+
 sodapy2 is a Python client for the [Socrata Open Data API](https://dev.socrata.com/).
 
 ## Installation
