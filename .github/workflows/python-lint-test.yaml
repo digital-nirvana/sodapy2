@@ -36,7 +36,7 @@ jobs:
 
     - name: Lint with ruff
       run: |
-        ruff check . --statistics --format=github --no-cache
+        ruff check . --statistics --output-format=github --no-cache
     - name: Test with pytest
       run: |
         python -m pytest
