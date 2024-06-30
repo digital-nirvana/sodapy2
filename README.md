@@ -1,8 +1,4 @@
-<!-- 
-TODO: Reinstate all of this
-
-[![PyPI version](https://badge.fury.io/py/sodapy2.svg)](http://badge.fury.io/py/sodapy2) [![Build Status](https://travis-ci.com/xmunoz/sodapy2.svg?branch=master)](https://travis-ci.com/xmunoz/sodapy2) [![Code Coverage](https://codecov.io/github/xmunoz/sodapy2/coverage.svg?branch=master)](https://codecov.io/github/xmunoz/sodapy2) -->
-<!-- TODO ^^^^ -->
+[![Lint and Test](https://github.com/digital-nirvana/sodapy2/actions/workflows/python-lint-test.yaml/badge.svg?branch=main)](https://github.com/digital-nirvana/sodapy2/actions/workflows/python-lint-test.yaml)
 
 # sodapy2
 
@@ -18,7 +14,7 @@ If you want to install from source, then clone this repository and run `python s
 
 ## Compatibility
 
-`sodapy2` is compatible with Python >=3.6.
+`sodapy2` is compatible with Python >=3.9.
 
 ## Documentation
 

@@ -180,7 +180,7 @@ class Socrata:
 
         if limit != 0:
             raise Exception(
-                f"Unexpected number of results returned from endpoint. Expected {limit}, got {len(results["results"])}."
+                f"Unexpected number of results returned from endpoint. Expected {limit}, got {len(results['results'])}."
             )
 
         # get all remaining results
