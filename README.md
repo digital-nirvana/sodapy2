@@ -14,7 +14,7 @@ If you want to install from source, then clone this repository and run `python s
 
 ## Compatibility
 
-`sodapy2` is compatible with Python >=3.6.
+`sodapy2` is compatible with Python >=3.9.
 
 ## Documentation
 
