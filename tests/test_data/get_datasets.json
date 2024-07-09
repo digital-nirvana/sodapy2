@@ -1564,7 +1564,7 @@
       }
     }
   ],
-  "resultSetSize": 150680,
+  "resultSetSize": 7,
   "timings": {
     "serviceMillis": 39,
     "searchMillis": [
