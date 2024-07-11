@@ -32,7 +32,7 @@ classifiers = [
 ]
 
 [tool.setuptools.dynamic]
-version = { attr = "package.__version__" }
+version = { attr = "sodapy2.__version__" }
 
 [tool.ruff]
 line-length = 120
