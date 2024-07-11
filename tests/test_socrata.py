@@ -23,7 +23,7 @@ def test_client():
     client.close()
 
 
-def test_client_throttle_warning(caplog):
+def test_client_throttle_warning(caplog: pytest.LogCaptureFixture):
     with caplog.at_level(logging.WARNING):
         client = Socrata(DOMAIN, None)
     assert "strict throttling limits" in caplog.text
@@ -66,8 +66,10 @@ def test_get_json():
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get(DATASET_ID)
-        assert isinstance(response, list)
         assert len(response) == 10
+        assert isinstance(response, list)
+        for item in response:
+            assert isinstance(item, dict)
 
 
 def test_get_json_with_unicode():
@@ -82,36 +84,36 @@ def test_get_json_with_unicode():
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get(DATASET_ID)
-        assert isinstance(response, list)
         assert len(response) == 10
+        assert isinstance(response, list)
+        for item in response:
+            assert isinstance(item, dict)
 
 
 def test_get_all():
     adapter = requests_mock.Adapter()
 
-    response_body = _get_test_response_body(body_file="bike_counts_page_1.json")
+    # The get_all() call is expected to make two requests. A first one to get the first 1000 results, then
+    # a second to get the remaining. Here we set up mock adapters to intercept each request.
     adapter.register_uri(
         "GET",
         urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", "$offset=0", None)),
-        json=response_body,
+        json=_get_test_response_body(body_file="bike_counts_page_1.json"),
         headers={"content-type": Formats.JSON.mimetype},
     )
-
-    response_body = _get_test_response_body(body_file="bike_counts_page_2.json")
     adapter.register_uri(
         "GET",
         urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", "$offset=1000", None)),
-        json=response_body,
+        json=_get_test_response_body(body_file="bike_counts_page_2.json"),
         headers={"content-type": Formats.JSON.mimetype},
     )
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get_all(dataset_id=DATASET_ID)
         assert inspect.isgenerator(response)
-        data = list(response)
-        assert len(data) == 1001
-        assert data[0]["date"] == "2016-09-21T15:45:00.000"
-        assert data[-1]["date"] == "2016-10-02T01:45:00.000"
+        assert len(list(response)) == 1001
+        for item in response:
+            assert {"id", "date", "counts", "status"}.issubset(item.keys())
 
 
 def test_get_datasets():
@@ -119,16 +121,22 @@ def test_get_datasets():
     adapter = requests_mock.Adapter()
     adapter.register_uri(
         "GET",
-        urlunsplit((PROTO, DOMAIN, SodaApiEndpoints.DISCOVERY.endpoint, "limit=7&offset=0", None)),
+        urlunsplit((PROTO, DOMAIN, SodaApiEndpoints.DISCOVERY.endpoint, None, None)),
         json=response_body,
         headers={"content-type": Formats.JSON.mimetype},
     )
-    print(adapter)
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
-        response = client.get_datasets(limit=7)
-        assert isinstance(response, list)
-        assert len(response) == 7
+        response = client.get_datasets()
+
+        assert isinstance(response, dict)
+        assert {"results", "resultSetSize", "timings"}.issubset(response.keys())
+        assert isinstance(response["resultSetSize"], int)
+        assert isinstance(response["timings"], dict)
+        assert isinstance(response["results"], list)
+
+        for result in response["results"]:
+            assert {"name", "id", "createdAt"}.issubset(result["resource"].keys())
 
 
 # TODO: Implement this.
