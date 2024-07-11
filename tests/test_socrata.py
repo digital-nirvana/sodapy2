@@ -7,7 +7,7 @@ from urllib.parse import urlunsplit
 import pytest
 import requests_mock
 
-from sodapy2 import Socrata
+from sodapy2 import Socrata, __version__
 from sodapy2.constants import Formats, SodaApiEndpoints
 
 APPTOKEN = "FakeAppToken"
@@ -45,6 +45,19 @@ def test_context_manager_timeout_exception():
     with pytest.raises(TypeError):
         with Socrata(DOMAIN, APPTOKEN, timeout="fail"):
             pass
+
+
+def test_user_agent_default():
+    client = Socrata(DOMAIN, APPTOKEN)
+    assert "User-Agent" in client.session.headers
+    assert client.session.headers["User-Agent"] == f"sodapy2/{__version__.__version__}"
+
+
+def test_user_agent_custom():
+    custom_ua = "ua-unit-test"
+    client = Socrata(DOMAIN, APPTOKEN, user_agent=custom_ua)
+    assert "User-Agent" in client.session.headers
+    assert client.session.headers["User-Agent"] == custom_ua
 
 
 def test_get_invalid_type():

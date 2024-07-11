@@ -11,6 +11,7 @@ import requests
 import requests.adapters
 
 import sodapy2.utils as utils
+from sodapy2 import __version__
 from sodapy2.constants import Formats, SodaApiEndpoints
 
 
@@ -27,6 +28,7 @@ class Socrata:
         app_token: str = "",
         session_adapter: Union[requests.adapters.BaseAdapter, None] = None,
         timeout: Union[int, float] = 10,
+        user_agent: str = f"sodapy2/{__version__.__version__}",
     ):
         """
         Initialize an instance of Socrata.
@@ -49,6 +51,7 @@ class Socrata:
         self.proto = "http+mock" if os.environ.get("PYTEST_CURRENT_TEST") else "https"
 
         self.session = requests.Session()
+        self.session.headers["User-Agent"] = user_agent
         if not app_token:
             logging.warning("Requests made without an app_token will be subject to strict throttling limits.")
         else:
@@ -289,7 +292,6 @@ class Socrata:
             kwargs["params"] = utils.prune_empty_values(kwargs["params"])
         kwargs["timeout"] = self.timeout
         response = getattr(self.session, method)(uri, **kwargs)
-
         if response.status_code not in (200, 202):
             utils.raise_for_status(response)
 
