@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sodapy2"
 description = "Python library for the Socrata Open Data API"
-version = "1.0.0"
+dynamic = ["version"]
 urls = { source = "https://github.com/digital-nirvana/sodapy2" }
 authors = [{ name = "Jeff Kois", email = "jk@digitalnirvana.cc" }]
 maintainers = [{ name = "Jeff Kois", email = "jk@digitalnirvana.cc" }]
@@ -30,6 +30,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries",
 ]
+
+[tool.setuptools.dynamic]
+version = { attr = "package.__version__" }
 
 [tool.ruff]
 line-length = 120
