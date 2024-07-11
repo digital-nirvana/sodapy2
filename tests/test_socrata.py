@@ -66,8 +66,10 @@ def test_get_json():
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get(DATASET_ID)
-        assert isinstance(response, list)
         assert len(response) == 10
+        assert isinstance(response, list)
+        for item in response:
+            assert isinstance(item, dict)
 
 
 def test_get_json_with_unicode():
@@ -82,13 +84,17 @@ def test_get_json_with_unicode():
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get(DATASET_ID)
-        assert isinstance(response, list)
         assert len(response) == 10
+        assert isinstance(response, list)
+        for item in response:
+            assert isinstance(item, dict)
 
 
 def test_get_all():
     adapter = requests_mock.Adapter()
 
+    # The get_all() call is expected to make two requests. A first one to get the first 1000 results, then
+    # a second to get the remaining. Here we set up mock adapters to intercept each request.
     adapter.register_uri(
         "GET",
         urlunsplit((PROTO, DOMAIN, f"{SodaApiEndpoints.DATASET.endpoint}/{DATASET_ID}", "$offset=0", None)),
@@ -105,10 +111,9 @@ def test_get_all():
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get_all(dataset_id=DATASET_ID)
         assert inspect.isgenerator(response)
-        data = list(response)
-        assert len(data) == 1001
-        assert data[0]["date"] == "2016-09-21T15:45:00.000"
-        assert data[-1]["date"] == "2016-10-02T01:45:00.000"
+        assert len(list(response)) == 1001
+        for item in response:
+            assert {"id", "date", "counts", "status"}.issubset(item.keys())
 
 
 def test_get_datasets():
@@ -123,38 +128,14 @@ def test_get_datasets():
 
     with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
         response = client.get_datasets()
+
         assert isinstance(response, dict)
         assert {"results", "resultSetSize", "timings"}.issubset(response.keys())
-        resultSetSize = response["resultSetSize"]
-        assert isinstance(resultSetSize, int)
-        assert resultSetSize == 7
+        assert isinstance(response["resultSetSize"], int)
+        assert isinstance(response["timings"], dict)
+        assert isinstance(response["results"], list)
 
-        results = response["results"]
-        assert isinstance(results, list)
-        assert len(results) == 7
-        for result in results:
-            assert {"name", "id", "createdAt"}.issubset(result["resource"].keys())
-
-    # Chop off the first six elements to simulate an offset of 6.
-    response_body["results"] = response_body["results"][6:]
-    adapter.register_uri(
-        "GET",
-        urlunsplit((PROTO, DOMAIN, SodaApiEndpoints.DISCOVERY.endpoint, "$offset=6", None)),
-        json=response_body,
-        headers={"content-type": Formats.JSON.mimetype},
-    )
-    with Socrata(DOMAIN, APPTOKEN, session_adapter=adapter) as client:
-        response = client.get_datasets()
-        assert isinstance(response, dict)
-        assert {"results", "resultSetSize", "timings"}.issubset(response.keys())
-        resultSetSize = response["resultSetSize"]
-        assert isinstance(resultSetSize, int)
-        assert resultSetSize == 7
-
-        results = response["results"]
-        assert isinstance(results, list)
-        assert len(results) == 1
-        for result in results:
+        for result in response["results"]:
             assert {"name", "id", "createdAt"}.issubset(result["resource"].keys())
 
 

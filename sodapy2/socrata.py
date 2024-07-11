@@ -144,7 +144,7 @@ class Socrata:
         for filter in filters:
             if filter not in all_filters:
                 raise TypeError("Unknown filter %s" % filter)
-        params.update(utils.prune_empty_values(filters))
+        params.update(filters)
 
         order_fields = frozenset(
             [
@@ -161,10 +161,8 @@ class Socrata:
                 "updatedAt",
             ]
         )
-        params["order"] = params.get("order", "relevance")
-        params["offset"] = params.get("offset", 0)
         params["limit"] = params.get("limit", 1000)
-        if params["order"] not in order_fields:
+        if params.get("order") and params.get("order") not in order_fields:
             raise ValueError(f"Invalid order parameter. Must be one of {order_fields}")
 
         # TODO: custom domain-specific metadata
@@ -218,9 +216,7 @@ class Socrata:
             params["order"] = ":id"
 
         headers = {"Accept": Formats[content_type.upper()].mimetype}
-        params = utils.prune_empty_values(
-            {f"${k}": v for k, v in params.items()}  # Prepend a $ to the SoQL parameters, per the SODA API spec.
-        )
+        params = {f"${k}": v for k, v in params.items()}  # Prepend a $ to the SoQL parameters, per the SODA API spec.
         resource = f"{SodaApiEndpoints.DATASET.endpoint}/{dataset_id}"
 
         response, _ = self._perform_request("get", resource, headers=headers, params=params)
@@ -288,6 +284,9 @@ class Socrata:
             raise Exception(f"Unknown HTTP request method. Supported methods are: {supported_http_methods}")
 
         uri = urlunsplit((self.proto, self.domain, resource, None, None))
+
+        if kwargs.get("params"):
+            kwargs["params"] = utils.prune_empty_values(kwargs["params"])
         kwargs["timeout"] = self.timeout
         response = getattr(self.session, method)(uri, **kwargs)
 
