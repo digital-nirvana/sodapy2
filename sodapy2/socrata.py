@@ -1,7 +1,6 @@
 import csv
 import json
 import logging
-import os
 import re
 from io import StringIO
 from typing import Any, Generator, Union
@@ -21,6 +20,8 @@ class Socrata:
         from sodapy2 import Socrata
         client = Socrata("opendata.socrata.com")
     """
+
+    proto = "https"
 
     def __init__(
         self,
@@ -47,8 +48,6 @@ class Socrata:
         if not isinstance(timeout, (int, float)):
             raise TypeError("Arg `timeout` must be numeric.")
         self.timeout = timeout
-
-        self.proto = "http+mock" if os.environ.get("PYTEST_CURRENT_TEST") else "https"
 
         self.session = requests.Session()
         self.session.headers["User-Agent"] = user_agent
@@ -252,17 +251,17 @@ class Socrata:
             params["offset"] += params["limit"]
             response = self.get(dataset_id=dataset_id, content_type=content_type, **params)
 
-    def get_metadata(self, dataset_id: str = "") -> dict:
+    def get_metadata(self, dataset_id: str = "") -> Union[dict, list]:
         """
-        Retrieve the metadata for a particular dataset.
+        Retrieve the metadata for a particular domain dataset.
 
-        If no dataset_id is given, all metadata will be returned.
+        If no dataset_id is given, all the domain's metadata will be returned.
 
         Args:
             dataset_id: The identifier of the desired dataset.
 
         Returns:
-            The dataset's metadata.
+            The dataset's metadata as a dict. If no dataset_id was given, this method returns a list.
         """
         resource = (
             f"{SodaApiEndpoints.METADATA.endpoint}/{dataset_id}" if dataset_id else SodaApiEndpoints.METADATA.endpoint
@@ -298,9 +297,9 @@ class Socrata:
         content_type = response.headers.get("content-type").strip().lower()
         if re.match(r"application\/(vnd\.geo\+)?json", content_type):
             return_val = (response.json(), content_type)
-        elif content_type == "text/csv":
+        elif content_type == Formats.CSV.mimetype:
             return_val = (list(csv.reader(StringIO(response.text))), content_type)
-        elif content_type == "application/rdf+xml":
+        elif content_type == Formats.RDFXML.mimetype:
             return_val = (response.content, content_type)
         elif content_type == "text/plain":
             try:

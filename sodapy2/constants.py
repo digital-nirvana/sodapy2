@@ -3,7 +3,7 @@ from enum import Enum
 
 class Formats(Enum):
     CSV = ("csv", "text/csv; charset=utf-8")
-    JSON = ("json", "application/json;charset=utf-8")
+    JSON = ("json", "application/json; charset=utf-8")
     RDFXML = ("rdf", "application/rdf+xml; charset=utf-8")
     XML = ("xml", "text/xml; charset=utf-8")
 
