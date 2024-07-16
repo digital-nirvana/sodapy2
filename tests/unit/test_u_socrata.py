@@ -17,15 +17,22 @@ LOGGER = logging.getLogger(__name__)
 PROTO = "http+mock"
 
 
+@pytest.fixture(autouse=True)
+def mock_proto(monkeypatch):
+    monkeypatch.setattr(Socrata, "proto", PROTO)
+
+
 def test_client():
     client = Socrata(DOMAIN, APPTOKEN)
     assert isinstance(client, Socrata)
+    assert client.proto == PROTO
+    assert client.domain == DOMAIN
     client.close()
 
 
 def test_client_throttle_warning(caplog: pytest.LogCaptureFixture):
     with caplog.at_level(logging.WARNING):
-        client = Socrata(DOMAIN, None)
+        client = Socrata(DOMAIN, "")
     assert "strict throttling limits" in caplog.text
     client.close()
 

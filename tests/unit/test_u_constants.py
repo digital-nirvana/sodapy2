@@ -14,7 +14,7 @@ def test_formats_json_extension():
 
 
 def test_formats_json_mimetype():
-    assert Formats.JSON.mimetype == "application/json;charset=utf-8"
+    assert Formats.JSON.mimetype == "application/json; charset=utf-8"
 
 
 def test_formats_rdfxml_extension():
