@@ -12,6 +12,7 @@ import requests.adapters
 import sodapy2.utils as utils
 from sodapy2 import __version__
 from sodapy2.constants import Formats, SodaApiEndpoints
+from sodapy2.response import SodaResponse
 
 
 class Socrata:
@@ -290,11 +291,10 @@ class Socrata:
         if kwargs.get("params"):
             kwargs["params"] = utils.prune_empty_values(kwargs["params"])
         kwargs["timeout"] = self.timeout
-        response = getattr(self.session, method)(uri, **kwargs)
-        if response.status_code not in (200, 202):
-            utils.raise_for_status(response)
+        response = SodaResponse(getattr(self.session, method)(uri, **kwargs))
+        response.raise_for_status()
 
-        content_type = response.headers.get("content-type").strip().lower()
+        content_type = response.headers.get("content-type", "").strip().lower()
         if re.match(r"application\/(vnd\.geo\+)?json", content_type):
             return_val = (response.json(), content_type)
         elif content_type == Formats.CSV.mimetype:
