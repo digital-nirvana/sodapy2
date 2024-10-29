@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sodapy2.response import SodaHTTPError, SodaResponse
+from sodapy2.response import SodapyHttpError, SodapyResponse
 
 
 class TestSodaResponse:
@@ -11,7 +11,7 @@ class TestSodaResponse:
     @pytest.fixture
     def mock_200_response(self):
         """Fixture to create a mock Response object."""
-        response = MagicMock(spec=SodaResponse)
+        response = MagicMock(spec=SodapyResponse)
         response.status_code = 200
         response.reason = "OK"
         response.url = self.request_url
@@ -20,7 +20,7 @@ class TestSodaResponse:
     @pytest.fixture
     def mock_404_response(self):
         """Fixture to create a mock Response object."""
-        response = MagicMock(spec=SodaResponse)
+        response = MagicMock(spec=SodapyResponse)
         response.status_code = 404
         response.reason = "Not Found"
         response.url = self.request_url
@@ -29,7 +29,7 @@ class TestSodaResponse:
     @pytest.fixture
     def mock_500_response(self):
         """Fixture to create a mock Response object."""
-        response = MagicMock(spec=SodaResponse)
+        response = MagicMock(spec=SodapyResponse)
         response.status_code = 500
         response.reason = "Internal Server Error"
         response.url = self.request_url
@@ -37,19 +37,19 @@ class TestSodaResponse:
 
     def test_initialization(self, mock_200_response: MagicMock):
         """Test that SodaResponse initializes correctly."""
-        soda_response = SodaResponse(mock_200_response)
+        soda_response = SodapyResponse(mock_200_response)
         assert soda_response.status_code == 200
         assert soda_response.reason == "OK"
         assert soda_response.url == self.request_url
 
     def test_repr(self, mock_200_response: MagicMock):
         """Test the __repr__ method."""
-        soda_response = SodaResponse(mock_200_response)
+        soda_response = SodapyResponse(mock_200_response)
         assert repr(soda_response) == "<SodaResponse [200]>"
 
     def test_raise_for_status_no_error(self, mock_200_response: MagicMock):
         """Test that raise_for_status() does not raise an error for 2xx status codes."""
-        soda_response = SodaResponse(mock_200_response)
+        soda_response = SodapyResponse(mock_200_response)
         try:
             soda_response.raise_for_status()
         except Exception as e:
@@ -57,9 +57,9 @@ class TestSodaResponse:
 
     def test_raise_for_status_4xx(self, mock_404_response: MagicMock):
         """Test that raise_for_status() raises an error for 4xx status codes."""
-        soda_response = SodaResponse(mock_404_response)
+        soda_response = SodapyResponse(mock_404_response)
 
-        with pytest.raises(SodaHTTPError, match=r"Client Error 4\d\d: .+") as context:
+        with pytest.raises(SodapyHttpError, match=r"Client Error 4\d\d: .+") as context:
             soda_response.raise_for_status()
 
         assert context.value.status_code == 404
@@ -68,9 +68,9 @@ class TestSodaResponse:
 
     def test_raise_for_status_5xx(self, mock_500_response: MagicMock):
         """Test that raise_for_status() raises an error for 4xx status codes."""
-        soda_response = SodaResponse(mock_500_response)
+        soda_response = SodapyResponse(mock_500_response)
 
-        with pytest.raises(SodaHTTPError, match=r"Server Error 5\d\d: .+") as context:
+        with pytest.raises(SodapyHttpError, match=r"Server Error 5\d\d: .+") as context:
             soda_response.raise_for_status()
 
         assert context.value.status_code == 500
@@ -85,8 +85,8 @@ class TestSodaHTTPError:
         test_status_code = 502
         test_reason = "Bad Gateway"
 
-        with pytest.raises(SodaHTTPError) as exc:
-            raise SodaHTTPError(status_code=test_status_code, reason=test_reason)
+        with pytest.raises(SodapyHttpError) as exc:
+            raise SodapyHttpError(status_code=test_status_code, reason=test_reason)
         assert exc.value.status_code == test_status_code
         assert exc.value.reason == test_reason
         assert str(exc.value) == f"Server Error {test_status_code}: {test_reason}. See error_detail."
@@ -95,8 +95,8 @@ class TestSodaHTTPError:
         test_status_code = 502
         test_reason = "Bad Gateway"
 
-        with pytest.raises(SodaHTTPError) as exc:
-            raise SodaHTTPError(status_code=test_status_code, reason=test_reason, request_url=self.request_url)
+        with pytest.raises(SodapyHttpError) as exc:
+            raise SodapyHttpError(status_code=test_status_code, reason=test_reason, request_url=self.request_url)
         assert exc.value.status_code == test_status_code
         assert exc.value.reason == test_reason
         assert exc.value.request_url == self.request_url
@@ -109,8 +109,8 @@ class TestSodaHTTPError:
         test_status_code = 404
         test_reason = "Not Found"
 
-        with pytest.raises(SodaHTTPError) as exc:
-            raise SodaHTTPError(status_code=test_status_code, reason=test_reason)
+        with pytest.raises(SodapyHttpError) as exc:
+            raise SodapyHttpError(status_code=test_status_code, reason=test_reason)
         assert exc.value.status_code == test_status_code
         assert exc.value.reason == test_reason
         assert str(exc.value) == f"Client Error {test_status_code}: {test_reason}. See error_detail."
@@ -119,8 +119,8 @@ class TestSodaHTTPError:
         test_status_code = 404
         test_reason = "Not Found"
 
-        with pytest.raises(SodaHTTPError) as exc:
-            raise SodaHTTPError(status_code=test_status_code, reason=test_reason, request_url=self.request_url)
+        with pytest.raises(SodapyHttpError) as exc:
+            raise SodapyHttpError(status_code=test_status_code, reason=test_reason, request_url=self.request_url)
         assert exc.value.status_code == test_status_code
         assert exc.value.reason == test_reason
         assert exc.value.request_url == self.request_url
@@ -133,8 +133,8 @@ class TestSodaHTTPError:
         test_status_code = 300
         test_reason = "Multiple Choices"
 
-        with pytest.raises(SodaHTTPError) as exc:
-            raise SodaHTTPError(status_code=test_status_code, reason=test_reason)
+        with pytest.raises(SodapyHttpError) as exc:
+            raise SodapyHttpError(status_code=test_status_code, reason=test_reason)
         assert exc.value.status_code == test_status_code
         assert exc.value.reason == test_reason
         assert str(exc.value) == f"Undefined Error {test_status_code}: {test_reason}"
@@ -149,8 +149,8 @@ class TestSodaHTTPError:
             "data": {"query": "select * where string_column > 42"},
         }
 
-        with pytest.raises(SodaHTTPError) as exc:
-            raise SodaHTTPError(status_code=test_status_code, reason=test_reason, error_detail=test_error_detail)
+        with pytest.raises(SodapyHttpError) as exc:
+            raise SodapyHttpError(status_code=test_status_code, reason=test_reason, error_detail=test_error_detail)
         assert exc.value.status_code == test_status_code
         assert exc.value.reason == test_reason
         assert str(exc.value) == f"Client Error {test_status_code}: {test_reason}. See error_detail."

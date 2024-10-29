@@ -3,7 +3,7 @@ import json
 from requests import Response
 
 
-class SodaResponse(Response):
+class SodapyResponse(Response):
     """Return a copy of the requests.Response object."""
 
     def __init__(self, response):
@@ -18,7 +18,7 @@ class SodaResponse(Response):
         """Override raise_for_status() to include the Socrata API error information."""
 
         if 400 <= self.status_code < 600:
-            raise SodaHTTPError(
+            raise SodapyHttpError(
                 status_code=self.status_code,
                 reason=self.reason,
                 request_url=self.url,
@@ -26,7 +26,7 @@ class SodaResponse(Response):
             )
 
 
-class SodaHTTPError(Exception):
+class SodapyHttpError(Exception):
     """Raise a specialized HTTP Error that includes extra error information."""
 
     def __init__(self, status_code, reason, *args, **kwargs):
